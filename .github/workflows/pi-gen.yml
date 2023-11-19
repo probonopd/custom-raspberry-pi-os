@@ -14,7 +14,32 @@ jobs:
         with:
           image-name: test
 
-      - uses: actions/upload-artifact@v3
+      - name: Check if release "continuous" exists and delete it
+        if: success()
+        id: check-and-delete-release
+        run: |
+          release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/continuous" | jq -r '.id // empty')
+          if [ -n "$release_id" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+          fi
+        shell: bash
+
+      - name: Create release "continuous"
+        if: success()
+        id: create-release
+        run: |
+          release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d '{"tag_name": "continuous", "name": "Continuous Release", "draft": false}' \
+            "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.id // empty')
+          echo "::set-output name=release_id::$release_id"
+        shell: bash
+
+      - name: Upload artifact to release "continuous"
+        if: success() && steps.create-release.outputs.release_id
+        uses: actions/upload-artifact@v3
         with:
           name: pi-gen-image
           path: ${{ steps.build.outputs.image-path }}
+          target-refs: ${{ steps.create-release.outputs.release_id }}
