@@ -30,7 +30,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            "${{ steps.build.outputs.image-path }}"
+            ${{ steps.build.outputs.image-path }}
           tag_name: continuous
           target_commitish: ${{ github.sha }}
           draft: false
