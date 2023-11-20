@@ -20,19 +20,17 @@ jobs:
           # any custom stage will include an image export directive.
           stage-list: stage0 stage1 stage2 stage3 stage4
 
-      - name: Check if release "continuous" exists and delete it, then create and upload release
+      - name: Delete existing release and tag
         if: success()
         id: create-and-upload-release
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-          release_id=$(gh release view continuous --json id --repo "${{ github.repository }}" | jq -r '.id // empty')
-          if [ -n "$release_id" ]; then
-            gh release delete "$release_id" --repo "${{ github.repository }}" -y
-          fi
+          git push --delete origin continuous || true # Delete existing release and tag
 
-          release_id=$(gh release create continuous --title "continuous" --repo "${{ github.repository }}" --json id | jq -r '.id // empty')
-          if [ -n "$release_id" ]; then
-            gh release upload "$release_id" "${{ steps.build.outputs.image-path }}" --repo "${{ github.repository }}" --clobber
-            echo "::set-output name=release_id::$release_id"
-          fi
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            "${{ steps.build.outputs.image-path }}"
+          tag_name: continuous
+          target_commitish: ${{ github.sha }}
+          draft: false
