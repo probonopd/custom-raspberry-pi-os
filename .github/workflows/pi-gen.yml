@@ -20,32 +20,21 @@ jobs:
           # any custom stage will include an image export directive.
           stage-list: stage0 stage1 stage2 stage3 stage4
 
-      - name: Check if release "continuous" exists and delete it
+      - name: Check if release "continuous" exists and delete it, then create and upload release
         if: success()
-        id: check-and-delete-release
+        id: create-and-upload-release
         run: |
-          release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/continuous" | jq -r '.id // empty')
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+          sudo apt-add-repository https://cli.github.com/packages
+          sudo apt-get update
+          sudo apt-get install -y gh jq
+          release_id=$(gh release view continuous --json id --repo "${{ github.repository }}" | jq -r '.id // empty')
           if [ -n "$release_id" ]; then
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+            gh release delete "$release_id" --repo "${{ github.repository }}" -y
           fi
-        shell: bash
 
-      - name: Create release "continuous"
-        if: success()
-        id: create-release
-        run: |
-          release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -d '{"tag_name": "continuous", "name": "Continuous Release", "draft": false}' \
-            "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.id // empty')
-          echo "::set-output name=release_id::$release_id"
-        shell: bash
-
-      - name: Upload artifact to release "continuous"
-        if: success() && steps.create-release.outputs.release_id
-        uses: actions/upload-artifact@v3
-        with:
-          name: pi-gen-image
-          path: ${{ steps.build.outputs.image-path }}
-          target-refs: ${{ steps.create-release.outputs.release_id }}
+          release_id=$(gh release create continuous --title "continuous" --repo "${{ github.repository }}" --json id | jq -r '.id // empty')
+          if [ -n "$release_id" ]; then
+            gh release upload "$release_id" "${{ steps.build.outputs.image-path }}" --repo "${{ github.repository }}" --clobber
+            echo "::set-output name=release_id::$release_id"
+          fi
