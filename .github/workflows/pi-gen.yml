@@ -19,7 +19,7 @@ jobs:
           # images in stage2 (lite), stage4 and stage5. You probably want to hook in custom 
           # stages before one of the exported stages. Otherwise, the action will make sure 
           # any custom stage will include an image export directive.
-          stage-list: stage0 stage1 stage2 stage3 stage4 stage4a
+          stage-list: stage0 stage1 stage2 stage3 stage4 # stage4a # Using stage4a leads to not enough disk space on GitHub Actions?
           export-last-stage-only: true
 
       - name: Delete existing release and tag
@@ -28,6 +28,10 @@ jobs:
         run: |
           git push --delete origin continuous || true # Delete existing release and tag
 
+      - name: Wait a bit
+        # Prevents draft releases getting created 
+        run: sleep 2
+        
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
